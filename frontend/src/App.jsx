@@ -1,313 +1,187 @@
-import React, { useState, useEffect } from 'react';
-import { Cpu, Home as HomeIcon, UploadCloud, BarChart3, MessageSquare, Settings as SettingsIcon, Lock, Sparkles, HelpCircle } from 'lucide-react';
-import Home from './pages/Home';
-import UploadZone from './components/UploadZone';
-import CloneSelector from './components/CloneSelector';
-import AnalyticsDashboard from './components/AnalyticsDashboard';
+import React, { useState } from 'react';
+import { mockPersonas } from './mockData';
+import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
-import Settings from './pages/Settings';
-
-import { analyzeSenderStyle } from './utils/styleAnalyzer';
-import { buildSystemPrompt } from './utils/promptBuilder';
-import { generateReplyPairs } from './utils/chatParser';
-
-const DEFAULT_PROMPT = `You are a digital clone of {{user_name}}, built from their real WhatsApp message history. Your job is not to be a helpful assistant — it's to sound like this specific person when they text.
-
-Below is a sample of {{user_name}}'s actual sent messages, pulled from their WhatsApp export:
-
-{{message_samples}}
-
-Before responding to anything, study these patterns:
-- Message length: do they send short one-liners, or long paragraphs? Do they break one thought into 3-4 separate messages instead of one?
-- Punctuation and capitalization: do they use proper grammar, or lowercase everything, skip periods, double up "!!", etc.
-- Slang, filler words, and catchphrases they repeat ("lol", "fr", "ngl", "bro", etc.)
-- Emoji usage: which ones, how often, and where they place them
-- How they open and close conversations (do they say "hey" or jump straight in? do they say bye or just go silent?)
-- How they respond to different moods — are they sarcastic, blunt, warm, dry, teasing?
-- Typos or quirks they consistently make (these are part of their voice — don't autocorrect them away)
-
-Rules:
-1. Never break character or mention that you are an AI, a clone, or a language model, unless the user explicitly asks "are you real" or similar — then be honest.
-2. Match message length and formatting style to the samples, not to what "sounds better." If the real person sends fragments, you send fragments.
-3. Don't be more polite, articulate, or emotionally available than the real person's texts show them to be. If they're a person of few words, be a person of few words.
-4. Stay consistent with opinions, relationships, or facts mentioned in the message history if they come up again.
-5. If asked something outside what the message history could plausibly know (private info about a third person, real-time facts, etc.), respond the way the real person would if they didn't know something — don't suddenly become an omniscient assistant.
-
-Now respond to the incoming message as {{user_name}} would, based on everything above. Keep your response brief, natural, and styled exactly like the user.`;
-
-const DEFAULT_SETTINGS = {
-  ollamaHost: 'http://localhost:11434',
-  ollamaModel: 'llama3.2',
-  temperature: 0.7,
-  maxTokens: 100,
-  promptTemplate: DEFAULT_PROMPT
-};
+import StyleDashboard from './components/StyleDashboard';
+import { Sun, Moon, Sparkles, MessageSquareCode } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home'); // home, upload, analytics, chat, settings
-  const [savedClones, setSavedClones] = useState([]);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [personas, setPersonas] = useState(mockPersonas);
+  const [activePersonaId, setActivePersonaId] = useState('clone');
+  const [darkMode, setDarkMode] = useState(true);
 
-  // Archive upload state
-  const [messages, setMessages] = useState([]);
-  const [fileName, setFileName] = useState('');
-  const [wizardStep, setWizardStep] = useState('upload'); // upload, select
+  const activePersona = personas.find((p) => p.id === activePersonaId);
 
-  // Active Clone state
-  const [activeCloneName, setActiveCloneName] = useState(null);
-  const [activeClone, setActiveClone] = useState(null);
-
-  // Load from local storage on mount
-  useEffect(() => {
-    const clonesData = localStorage.getItem('ditto_saved_clones');
-    if (clonesData) {
-      try {
-        setSavedClones(JSON.parse(clonesData));
-      } catch (e) {
-        console.error('Failed to load clones list', e);
-      }
-    }
-
-    const settingsData = localStorage.getItem('ditto_settings');
-    if (settingsData) {
-      try {
-        setSettings(JSON.parse(settingsData));
-      } catch (e) {
-        console.error('Failed to load settings', e);
-      }
-    }
-  }, []);
-
-  const handleChatParsed = (parsedMessages, name) => {
-    setMessages(parsedMessages);
-    setFileName(name);
-    setWizardStep('select');
+  const handleSelectPersona = (id) => {
+    setActivePersonaId(id);
+    
+    // Clear unread count when clicking a chat
+    setPersonas((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, unreadCount: 0 } : p))
+    );
   };
 
-  const handleCloneSelected = (cloneName) => {
-    // Compile style metrics
-    const analysis = analyzeSenderStyle(messages, cloneName);
-    const pairs = generateReplyPairs(messages, cloneName);
-    const systemPrompt = buildSystemPrompt(cloneName, analysis, pairs, settings.promptTemplate);
-
-    const cloneData = {
-      name: cloneName,
-      analysis,
-      replyPairs: pairs,
-      systemPrompt,
-      createdAt: new Date().toISOString(),
-      summary: analysis.summary
+  const handleSendMessage = (text) => {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    
+    // 1. Add user's message
+    const userMessage = {
+      id: Date.now(),
+      sender: 'me',
+      text,
+      timestamp,
+      status: 'read'
     };
 
-    // Save to clones list
-    const updatedClones = savedClones.filter(c => c.name !== cloneName);
-    const newList = [cloneData, ...updatedClones];
-    setSavedClones(newList);
-    localStorage.setItem('ditto_saved_clones', JSON.stringify(newList));
+    setPersonas((prev) =>
+      prev.map((p) => {
+        if (p.id === activePersonaId) {
+          return {
+            ...p,
+            chatHistory: [...p.chatHistory, userMessage]
+          };
+        }
+        return p;
+      })
+    );
 
-    // Load as active
-    setActiveCloneName(cloneName);
-    setActiveClone(cloneData);
+    // 2. Trigger typing status
+    setPersonas((prev) =>
+      prev.map((p) => (p.id === activePersonaId ? { ...p, status: 'typing' } : p))
+    );
 
-    // Navigate to Analytics
-    setActiveTab('analytics');
-    setWizardStep('upload'); // reset wizard
+    // 3. Simulate Llama 3.2 local model inference after 1.5s
+    setTimeout(() => {
+      let aiText = '';
+      const lowerText = text.toLowerCase();
+
+      // Simple keyword matching for high-fidelity responses matching persona style profiles
+      if (activePersonaId === 'clone') {
+        if (lowerText.includes('hello') || lowerText.includes('hey') || lowerText.includes('hi')) {
+          aiText = 'hey! literally just looking over some code, what is up? 🚀';
+        } else if (lowerText.includes('how') || lowerText.includes('work')) {
+          aiText = 'it makes total sense, we just load the parser service, compile style markers, and prompt llama 3.2 directly. let\'s go 😂';
+        } else {
+          aiText = 'solid point. awesome. let\'s try compiling the chat files next or check the logs 🔥';
+        }
+      } else if (activePersonaId === 'sarah') {
+        if (lowerText.includes('figma') || lowerText.includes('design') || lowerText.includes('mock')) {
+          aiText = 'The designs are finalized. I made sure to double-check the spacing and color alignments for accessibility guidelines. 🙏';
+        } else {
+          aiText = 'I received your message. I am currently reviewing the mobile user testing prototypes and will follow up with feedback.';
+        }
+      } else if (activePersonaId === 'mom') {
+        aiText = 'Okay dear!! Take care and drive slowly!! ❤️ Call me when you are home! 😘🌸';
+      } else if (activePersonaId === 'alex') {
+        aiText = 'lgtm, rebase done. test compile ok 👍';
+      }
+
+      const aiMessage = {
+        id: Date.now() + 1,
+        sender: 'them',
+        text: aiText || 'received! Llama 3.2 clone model loaded successfully.',
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        status: 'read'
+      };
+
+      setPersonas((prev) =>
+        prev.map((p) => {
+          if (p.id === activePersonaId) {
+            return {
+              ...p,
+              status: 'online',
+              chatHistory: [...p.chatHistory, aiMessage]
+            };
+          }
+          return p;
+        })
+      );
+    }, 1500);
   };
 
-  const handleLoadClone = (cloneName, redirectTab = 'analytics') => {
-    const clone = savedClones.find(c => c.name === cloneName);
-    if (clone) {
-      // Re-compile prompt in case settings promptTemplate changed
-      const systemPrompt = buildSystemPrompt(clone.name, clone.analysis, clone.replyPairs, settings.promptTemplate);
-      
-      setActiveCloneName(cloneName);
-      setActiveClone({
-        ...clone,
-        systemPrompt
-      });
-      setActiveTab(redirectTab);
-    }
-  };
-
-  const handleSaveSettings = (newSettings) => {
-    setSettings(newSettings);
-    localStorage.setItem('ditto_settings', JSON.stringify(newSettings));
-  };
-
-  const handleResetPrompt = () => {
-    return DEFAULT_PROMPT;
+  const handleImportChat = (fileName) => {
+    // Modify existing clone or add a high accuracy version
+    setPersonas((prev) =>
+      prev.map((p) => {
+        if (p.id === 'clone') {
+          return {
+            ...p,
+            name: "My Digital Clone (Retrained)",
+            styleProfile: {
+              ...p.styleProfile,
+              matchScore: 99,
+              tone: "Perfect mimicry of Sumit Kumar, fast typing speed, ultra casual",
+              vocabulary: [...p.styleProfile.vocabulary, "rebase", "config", "ditto", "parse"]
+            },
+            chatHistory: [
+              ...p.chatHistory,
+              {
+                id: Date.now(),
+                sender: 'them',
+                text: `🤖 Clone re-trained successfully using "${fileName}" export. Accuracy match score upgraded to 99%! Ready to test.`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'read'
+              }
+            ]
+          };
+        }
+        return p;
+      })
+    );
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-400 flex flex-col md:flex-row items-stretch">
-      
-      {/* 🧭 Left Navigation Sidebar */}
-      <aside className="w-full md:w-64 bg-zinc-950 border-b md:border-b-0 md:border-r border-zinc-900 shrink-0 flex flex-col justify-between">
-        <div className="flex flex-col">
-          {/* Logo Brand */}
-          <div 
-            onClick={() => setActiveTab('home')}
-            className="px-6 h-16 flex items-center gap-2.5 cursor-pointer border-b border-zinc-900 bg-zinc-950/50"
+    <div className={`h-screen flex flex-col overflow-hidden transition-colors ${darkMode ? 'dark bg-[#0b141a]' : 'bg-[#e7e9eb]'}`}>
+      {/* Top Application Bar */}
+      <header className={`px-4 py-2.5 flex items-center justify-between border-b shadow-sm ${
+        darkMode ? 'bg-[#111b21] border-[#222e35] text-white' : 'bg-[#f0f2f5] border-[#e9edef] text-gray-800'
+      }`}>
+        <div className="flex items-center gap-2">
+          <MessageSquareCode className="text-emerald-500 animate-pulse" size={24} />
+          <h1 className="text-lg font-bold tracking-tight m-0 select-none">
+            Digital Clone AI <span className="text-xs font-normal text-gray-400">v1.0.0</span>
+          </h1>
+        </div>
+
+        {/* Global Toolbar */}
+        <div className="flex items-center gap-4">
+          {/* Light/Dark Toggle */}
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className={`p-2 rounded-full cursor-pointer transition-colors ${
+              darkMode ? 'hover:bg-[#202c33] text-amber-400' : 'hover:bg-[#eaebeb] text-sky-600'
+            }`}
+            title={darkMode ? "Switch to WhatsApp Light Mode" : "Switch to WhatsApp Dark Mode"}
           >
-            <div className="p-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-white">
-              <Cpu className="w-4 h-4" />
-            </div>
-            <div>
-              <span className="font-extrabold text-base text-zinc-100 tracking-tight font-heading">Ditto</span>
-              <span className="text-[8px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-500 font-bold px-1.5 py-0.5 rounded ml-2 uppercase tracking-wider">
-                v4.0
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-1">
-            <button
-              onClick={() => setActiveTab('home')}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-mono uppercase tracking-wider rounded-xl transition-colors ${
-                activeTab === 'home' 
-                  ? 'bg-zinc-900 text-white font-bold border border-zinc-800' 
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 border border-transparent'
-              }`}
-            >
-              <HomeIcon className="w-4 h-4" />
-              <span>Home</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setWizardStep('upload');
-                setActiveTab('upload');
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-mono uppercase tracking-wider rounded-xl transition-colors ${
-                activeTab === 'upload' 
-                  ? 'bg-zinc-900 text-white font-bold border border-zinc-800' 
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 border border-transparent'
-              }`}
-            >
-              <UploadCloud className="w-4 h-4" />
-              <span>Upload</span>
-            </button>
-
-            <button
-              disabled={!activeClone}
-              onClick={() => setActiveTab('analytics')}
-              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-mono uppercase tracking-wider rounded-xl transition-colors ${
-                activeTab === 'analytics' 
-                  ? 'bg-zinc-900 text-white font-bold border border-zinc-800' 
-                  : !activeClone 
-                  ? 'opacity-40 cursor-not-allowed text-zinc-600' 
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 border border-transparent'
-              }`}
-              title={!activeClone ? "Synchronize a chat file first" : ""}
-            >
-              <div className="flex items-center gap-3">
-                <BarChart3 className="w-4 h-4" />
-                <span>Analytics</span>
-              </div>
-              {!activeClone && <Lock className="w-3.5 h-3.5" />}
-            </button>
-
-            <button
-              disabled={!activeClone}
-              onClick={() => setActiveTab('chat')}
-              className={`w-full flex items-center justify-between px-3 py-2 text-xs font-mono uppercase tracking-wider rounded-xl transition-colors ${
-                activeTab === 'chat' 
-                  ? 'bg-zinc-900 text-white font-bold border border-zinc-800' 
-                  : !activeClone 
-                  ? 'opacity-40 cursor-not-allowed text-zinc-600' 
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 border border-transparent'
-              }`}
-              title={!activeClone ? "Synchronize a chat file first" : ""}
-            >
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-4 h-4" />
-                <span>Chat</span>
-              </div>
-              {!activeClone && <Lock className="w-3.5 h-3.5" />}
-            </button>
-
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-3 px-3 py-2 text-xs font-mono uppercase tracking-wider rounded-xl transition-colors ${
-                activeTab === 'settings' 
-                  ? 'bg-zinc-900 text-white font-bold border border-zinc-800' 
-                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/40 border border-transparent'
-              }`}
-            >
-              <SettingsIcon className="w-4 h-4" />
-              <span>Settings</span>
-            </button>
-          </nav>
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
+      </header>
 
-        {/* Sidebar Footer Details (Desktop only) */}
-        <div className="hidden md:flex flex-col p-4 border-t border-zinc-900 text-[9px] font-mono text-zinc-600 space-y-1.5">
-          {activeCloneName && (
-            <div className="flex items-center gap-1 bg-zinc-900/45 px-2.5 py-1 rounded border border-zinc-900 truncate">
-              <span className="w-1 h-1 bg-emerald-500 rounded-full shrink-0"></span>
-              <span className="truncate">Active: {activeCloneName}</span>
-            </div>
-          )}
-          <span className="uppercase text-center">Ditto Sandbox isolated</span>
-        </div>
-      </aside>
+      {/* Main Layout Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left: Chat thread list */}
+        <Sidebar
+          personas={personas}
+          activePersonaId={activePersonaId}
+          onSelectPersona={handleSelectPersona}
+          darkMode={darkMode}
+        />
 
-      {/* 🖥️ Right Workspace Viewport */}
-      <main className="flex-grow flex flex-col p-6 sm:p-10 overflow-y-auto">
-        {activeTab === 'home' && (
-          <Home 
-            savedClones={savedClones} 
-            onLoadClone={handleLoadClone} 
-            onNavigate={(tab) => {
-              if (tab === 'upload') setWizardStep('upload');
-              setActiveTab(tab);
-            }} 
-          />
-        )}
+        {/* Center: Live Chat conversation pane */}
+        <ChatWindow
+          persona={activePersona}
+          onSendMessage={handleSendMessage}
+          darkMode={darkMode}
+        />
 
-        {activeTab === 'upload' && (
-          wizardStep === 'upload' ? (
-            <UploadZone onChatParsed={handleChatParsed} />
-          ) : (
-            <CloneSelector
-              messages={messages}
-              fileName={fileName}
-              onCloneSelected={handleCloneSelected}
-              onBack={() => setWizardStep('upload')}
-            />
-          )
-        )}
-
-        {activeTab === 'analytics' && activeClone && (
-          <AnalyticsDashboard
-            cloneName={activeCloneName}
-            analysis={activeClone.analysis}
-            onProceed={() => setActiveTab('chat')}
-            onBack={() => setActiveTab('home')}
-          />
-        )}
-
-        {activeTab === 'chat' && activeClone && (
-          <ChatWindow
-            cloneName={activeCloneName}
-            analysis={activeClone.analysis}
-            systemPrompt={activeClone.systemPrompt}
-            replyPairs={activeClone.replyPairs}
-            settings={settings}
-            onBack={() => setActiveTab('analytics')}
-          />
-        )}
-
-        {activeTab === 'settings' && (
-          <Settings
-            settings={settings}
-            onSaveSettings={handleSaveSettings}
-            onResetPrompt={handleResetPrompt}
-          />
-        )}
-      </main>
-
+        {/* Right: Style dashboard / parser dropzone */}
+        <StyleDashboard
+          persona={activePersona}
+          onImportChat={handleImportChat}
+          darkMode={darkMode}
+        />
+      </div>
     </div>
   );
 }
