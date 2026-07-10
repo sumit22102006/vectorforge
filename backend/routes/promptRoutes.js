@@ -5,7 +5,7 @@ const router = express.Router();
 
 /**
  * @route   POST /api/build-prompt
- * @desc    Generate Llama 3.2 system prompts and compiled few-shot message payloads
+ * @desc    Builds a complete system prompt and few-shot messages array for Llama 3
  * @access  Public
  */
 router.post('/build-prompt', handleBuildPrompt);

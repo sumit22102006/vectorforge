@@ -1,26 +1,24 @@
-import { buildLlamaPrompt } from '../services/promptService.js';
+import { generatePromptPayload } from '../services/promptService.js';
 
 /**
- * Controller to compile Llama system prompts and return few-shot messages arrays
+ * Controller to trigger system prompt generation for an incoming message
  */
 export const handleBuildPrompt = async (req, res, next) => {
   try {
     const { filename, newIncomingMessage } = req.body;
 
     if (!filename || !newIncomingMessage) {
-      const error = new Error(
-        'Missing body parameters: Both "filename" and "newIncomingMessage" are required.'
-      );
+      const error = new Error('Invalid request: "filename" and "newIncomingMessage" are required in the body.');
       error.statusCode = 400;
       throw error;
     }
 
-    const promptData = await buildLlamaPrompt(filename, newIncomingMessage);
+    const payload = await generatePromptPayload(filename, newIncomingMessage);
 
     res.status(200).json({
       success: true,
-      systemPrompt: promptData.systemPrompt,
-      messages: promptData.messages
+      systemPrompt: payload.systemPrompt,
+      messages: payload.messages
     });
   } catch (err) {
     next(err);
