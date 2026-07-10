@@ -19,12 +19,100 @@ html, body, #root {
 ::-webkit-scrollbar-thumb  { background: rgba(139,92,246,.2); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,.4); }
 
-/* ─── App Shell ──────────────────────────────────────────────── */
+/* ─── App Layout & Shell ───────────────────────────────────────── */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  background: #f8fafc;
+}
+
 .app-shell {
   display: flex;
+  flex: 1;
   height: 100vh;
   overflow: hidden;
   background: #fff;
+}
+
+/* ─── Global Navigation Bar ───────────────────────────────────── */
+.nav-bar {
+  width: 64px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #1e1b4b; /* deep dark purple */
+  padding: 16px 0;
+  z-index: 50;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.nav-tabs, .nav-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-item {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: #818cf8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #c7d2fe;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+}
+
+.nav-label {
+  display: none; /* Can be expanded or shown as tooltip, but keep sleek for now */
+}
+
+/* ─── Placeholder Views ───────────────────────────────────────── */
+.view-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  background: #f8fafc;
+}
+
+.view-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.view-content {
+  padding: 32px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* ═══════════════════════════════════════════════════════════════

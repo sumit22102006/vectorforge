@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MoreVertical, Send, CheckCheck, Check, Sparkles } from 'lucide-react';
 
-export default function ChatWindow({ persona, onSendMessage, showDashboard, onToggleDashboard }) {
+export default function ChatWindow({ persona, onSendMessage, onTyping, showDashboard, onToggleDashboard }) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -100,7 +100,10 @@ export default function ChatWindow({ persona, onSendMessage, showDashboard, onTo
             className="input"
             placeholder="Type a message or trigger your digital clone..."
             value={inputText}
-            onChange={e => setInputText(e.target.value)}
+            onChange={e => {
+              setInputText(e.target.value);
+              if (onTyping) onTyping(e.target.value.length > 0);
+            }}
           />
         </div>
         <button type="submit" className="send-btn">

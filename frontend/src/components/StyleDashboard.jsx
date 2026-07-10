@@ -176,7 +176,7 @@ export default function StyleDashboard({ persona, onImportChat, onCloseDashboard
         <div>
           <div className="panel-section-title">Signature Words</div>
           <div className="chip-list">
-            {profile.vocabulary.map((word, idx) => (
+            {(profile.vocabulary || []).map((word, idx) => (
               <span key={idx} className="chip">{word}</span>
             ))}
           </div>

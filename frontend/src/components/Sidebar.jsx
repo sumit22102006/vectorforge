@@ -7,6 +7,14 @@ export default function Sidebar({ personas, activePersonaId, onSelectPersona }) 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Group contacts by category
+  const groups = ['Friends', 'Family', 'Teachers', 'Office', 'Other'];
+  
+  const groupedContacts = groups.reduce((acc, groupName) => {
+    acc[groupName] = filteredPersonas.filter(p => p.group === groupName);
+    return acc;
+  }, {});
+
   return (
     <div className="sidebar">
       {/* ── Brand ── */}
@@ -51,38 +59,53 @@ export default function Sidebar({ personas, activePersonaId, onSelectPersona }) 
       </div>
 
       {/* ── Contact List ── */}
-      <div className="contact-list">
+      <div className="contact-list" style={{ overflowY: 'auto' }}>
         {filteredPersonas.length === 0 ? (
           <div style={{ padding: 20, textAlign: 'center', color: 'rgba(255,255,255,.4)', fontSize: 11 }}>
             No contacts found
           </div>
         ) : (
-          filteredPersonas.map(persona => {
-            const isActive = persona.id === activePersonaId;
-            const lastMsg = persona.chatHistory[persona.chatHistory.length - 1];
-
+          groups.map(groupName => {
+            const groupContacts = groupedContacts[groupName];
+            if (!groupContacts || groupContacts.length === 0) return null;
+            
             return (
-              <div
-                key={persona.id}
-                onClick={() => onSelectPersona(persona.id)}
-                className={`contact-item${isActive ? ' active' : ''}`}
-              >
-                <div className="contact-avatar">
-                  {persona.avatar}
-                  {persona.status === 'online' && <span className="contact-online-dot" />}
+              <div key={groupName} className="contact-group" style={{ marginBottom: 16 }}>
+                <div style={{ padding: '0 20px', fontSize: 10, textTransform: 'uppercase', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', marginBottom: 8 }}>
+                  {groupName}
                 </div>
-                <div className="contact-info">
-                  <div className="contact-name">{persona.name}</div>
-                  <div className="contact-preview">
-                    {lastMsg ? lastMsg.text : 'No messages yet'}
-                  </div>
-                </div>
-                <div className="contact-meta">
-                  <span className="contact-time">{lastMsg ? lastMsg.timestamp : ''}</span>
-                  {persona.unreadCount > 0 && (
-                    <span className="unread-badge">{persona.unreadCount}</span>
-                  )}
-                </div>
+                
+                {groupContacts.map(persona => {
+                  const isActive = activePersonaId === persona.id;
+                  return (
+                    <div
+                      key={persona.id}
+                      className={`contact-item ${isActive ? 'active' : ''}`}
+                      onClick={() => onSelectPersona(persona.id)}
+                    >
+                      <div className="avatar-wrapper">
+                        <div className="avatar">{persona.avatar}</div>
+                        {persona.status === 'online' && <span className="status-dot" />}
+                      </div>
+
+                      <div className="contact-info">
+                        <div className="contact-name">
+                          {persona.name}
+                          {persona.unreadCount > 0 && (
+                            <span className="unread-badge">{persona.unreadCount}</span>
+                          )}
+                        </div>
+                        <div className="contact-status">
+                          {persona.status === 'typing'
+                            ? <span style={{ color: '#8b5cf6', fontWeight: 500 }}>typing...</span>
+                            : persona.status === 'online'
+                              ? <span style={{ color: '#22c55e' }}>online</span>
+                              : 'offline'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             );
           })
