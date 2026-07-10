@@ -1,6 +1,6 @@
 import { getWritingStyleProfile } from './analyzerService.js';
 import { getPersonalityDescriptionText } from './personalityService.js';
-import { generateTrainingPairs } from './trainingService.js';
+import { retrieveSimilarPairs } from './retrievalService.js';
 
 /**
  * Compiles a system prompt and builds a few-shot message payload for Llama 3.2 imitation
@@ -9,10 +9,10 @@ import { generateTrainingPairs } from './trainingService.js';
  * @returns {Promise<Object>} Object containing { systemPrompt, messages }
  */
 export const buildLlamaPrompt = async (filename, newIncomingMessage) => {
-  // 1. Gather styling, profile, and few-shot pairs datasets
+  // 1. Gather styling, profile, and relevant few-shot pairs datasets
   const profile = await getWritingStyleProfile(filename);
   const description = await getPersonalityDescriptionText(filename);
-  const trainingPairs = await generateTrainingPairs(filename);
+  const relevantPairs = await retrieveSimilarPairs(filename, newIncomingMessage);
 
   // 2. Build the system prompt instruction string
   const systemPrompt = `
@@ -43,9 +43,8 @@ Strict Rules:
     { role: 'system', content: systemPrompt }
   ];
 
-  // Limit few-shots to 5 pairs to optimize context window for local Llama 3.2:3b
-  const fewShots = trainingPairs.slice(-5);
-  fewShots.forEach((pair) => {
+  // Inject the semantically retrieved context pairs
+  relevantPairs.forEach((pair) => {
     messages.push({ role: 'user', content: pair.input });
     messages.push({ role: 'assistant', content: pair.output });
   });

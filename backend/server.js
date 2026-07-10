@@ -9,6 +9,7 @@ import analyzerRoutes from './routes/analyzerRoutes.js';
 import personalityRoutes from './routes/personalityRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import promptRoutes from './routes/promptRoutes.js';
+import retrievalRoutes from './routes/retrievalRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 // Load environment configuration parameters
@@ -33,6 +34,7 @@ app.use('/api', analyzerRoutes);
 app.use('/api', personalityRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', promptRoutes);
+app.use('/api', retrievalRoutes);
 
 // Backend diagnostics endpoint
 app.get('/health', (req, res) => {
