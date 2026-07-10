@@ -81,10 +81,10 @@ export const mockPersonas = [
       matchScore: 78,
       tone: "Concise, developer-jargon heavy",
       punctuation: "Inconsistent, heavy use of abbreviations",
-      avgResponseTime: "5 minutes",
+      avgResponseTime: "~2 minutes",
       emojiUsage: "Moderate (prefers 👍, 💻, 🤦‍♂️, 📦)",
-      vocabulary: ["lgtm", "PR", "merge", "rebase", "infra", "docker", "local build"],
-      messageLength: "Very short (average 4 words)"
+      vocabulary: ["lgtm", "PR", "merge", "rebase", "lmk", "deploy", "local build"],
+      messageLength: "Very short (avg 6 words)"
     },
     chatHistory: [
       { id: 1, sender: "me", text: "Hey Alex, is the main branch updated?", timestamp: "11:10 AM", status: "read" },
