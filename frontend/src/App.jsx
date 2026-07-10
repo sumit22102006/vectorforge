@@ -9,6 +9,7 @@ export default function App() {
   const [personas, setPersonas] = useState(mockPersonas);
   const [activePersonaId, setActivePersonaId] = useState('clone');
   const [darkMode, setDarkMode] = useState(true);
+  const [showDashboard, setShowDashboard] = useState(false);
 
   const activePersona = personas.find((p) => p.id === activePersonaId);
 
@@ -173,14 +174,18 @@ export default function App() {
           persona={activePersona}
           onSendMessage={handleSendMessage}
           darkMode={darkMode}
+          showDashboard={showDashboard}
+          onToggleDashboard={() => setShowDashboard(!showDashboard)}
         />
 
         {/* Right: Style dashboard / parser dropzone */}
-        <StyleDashboard
-          persona={activePersona}
-          onImportChat={handleImportChat}
-          darkMode={darkMode}
-        />
+        {showDashboard && (
+          <StyleDashboard
+            persona={activePersona}
+            onImportChat={handleImportChat}
+            darkMode={darkMode}
+          />
+        )}
       </div>
     </div>
   );
