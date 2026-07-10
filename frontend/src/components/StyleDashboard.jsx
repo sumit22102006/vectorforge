@@ -1,392 +1,192 @@
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, CheckCircle2, BarChart3, Clock, Sparkles, X, User } from 'lucide-react';
-import axios from 'axios';
-import AnalyticsView from './AnalyticsView';
+import { Upload, FileText, CheckCircle2, Clock, Sparkles, X } from 'lucide-react';
 
-export default function StyleDashboard({ persona, onImportChat, darkMode, onCloseDashboard }) {
+export default function StyleDashboard({ persona, onImportChat, onCloseDashboard }) {
   const [dragActive, setDragActive] = useState(false);
-  const [uploadState, setUploadState] = useState('idle'); // idle | uploading | processing | select_owner | loading_profile | success
+  const [uploadState, setUploadState] = useState('idle');
   const [progress, setProgress] = useState(0);
-  const [participants, setParticipants] = useState([]);
-  const [uploadedFile, setUploadedFile] = useState(persona?.filename || '');
-  const [selectedOwner, setSelectedOwner] = useState('');
-  const [activeTab, setActiveTab] = useState('profile'); // profile | analytics
   const fileInputRef = useRef(null);
 
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
+    if (e.type === 'dragenter' || e.type === 'dragover') setDragActive(true);
+    else if (e.type === 'dragleave') setDragActive(false);
   };
 
   const processFile = async (file) => {
     if (!file || !file.name.endsWith('.txt')) {
-      alert("Please upload a valid .txt chat export file.");
+      alert('Please upload a valid .txt chat export file.');
       return;
     }
-
-    setUploadState('uploading');
-    setProgress(0);
-
+    setUploadState('loading');
+    setProgress(15);
     try {
       const formData = new FormData();
       formData.append('files', file);
-
-      // 1. Upload chat file tracking progress via Axios
-      const uploadRes = await axios.post('http://localhost:5000/api/upload', formData, {
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setProgress(percentCompleted);
-        }
-      });
-
-      const fileNameOnDisk = uploadRes.data.files[0].filename;
-      setUploadedFile(fileNameOnDisk);
-
-      // 2. Call parser to extract unique participants list
-      setUploadState('processing');
-      const participantsRes = await axios.get(`http://localhost:5000/api/participants?filename=${fileNameOnDisk}`);
-      
-      setParticipants(participantsRes.data.data);
-      setUploadState('select_owner');
+      const response = await fetch('http://localhost:5000/api/upload', { method: 'POST', body: formData });
+      setProgress(60);
+      if (!response.ok) { const e = await response.json(); throw new Error(e.message || 'Upload failed'); }
+      const data = await response.json();
+      setProgress(100);
+      setUploadState('success');
+      setTimeout(() => { onImportChat(file.name, data.styleProfile); setUploadState('idle'); setProgress(0); }, 1500);
     } catch (err) {
-      console.error('File parsing failed:', err);
-      alert(`Retraining failed: ${err.response?.data?.error || err.message}`);
+      alert(`Failed: ${err.message}`);
       setUploadState('idle');
       setProgress(0);
     }
   };
 
-  const handleConfirmOwner = async (ownerName) => {
-    if (!ownerName) return;
-    setSelectedOwner(ownerName);
-    setUploadState('loading_profile');
-
-    try {
-      // 3. Register selected owner
-      await axios.post('http://localhost:5000/api/select-owner', {
-        filename: uploadedFile,
-        ownerName
-      });
-
-      // 4. Load style profile and personality summary details
-      const profileRes = await axios.get(`http://localhost:5000/api/style-profile?filename=${uploadedFile}`);
-      const summaryRes = await axios.get(`http://localhost:5000/api/personality-summary?filename=${uploadedFile}`);
-
-      const styleProfile = profileRes.data.data;
-      const summary = summaryRes.data.data;
-
-      // Map backend model metrics to React profile properties
-      const mappedProfile = {
-        matchScore: styleProfile.formalityScore !== undefined ? 100 - styleProfile.formalityScore : 94,
-        tone: `${styleProfile.formalityLevel} tone. Punctuation index: Ending period ${styleProfile.punctuationHabits.endingPeriods}%, no ending punctuation ${styleProfile.punctuationHabits.noPunctuation}%.`,
-        punctuation: `Average sentence length: ${styleProfile.typicalSentenceLength} words. Typical greetings: "${styleProfile.greetingStyle}", goodbyes: "${styleProfile.goodbyeStyle}".`,
-        avgResponseTime: "1.5 minutes (mimicked)",
-        emojiUsage: `${styleProfile.emojiFrequency} frequency. Fav emojis: ${styleProfile.mostCommonEmojis.join(', ') || 'None'}`,
-        vocabulary: styleProfile.mostCommonWords,
-        messageLength: `${styleProfile.avgReplyLength} words average response length.`
-      };
-
-      setUploadState('success');
-
-      setTimeout(() => {
-        onImportChat(uploadedFile, mappedProfile, uploadedFile, ownerName);
-        setUploadState('idle');
-        setProgress(0);
-      }, 1500);
-    } catch (err) {
-      console.error('Retraining profile failed:', err);
-      alert(`Retrieving profile failed: ${err.response?.data?.error || err.message}`);
-      setUploadState('select_owner');
-    }
-  };
-
   const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
-    }
+    e.preventDefault(); e.stopPropagation(); setDragActive(false);
+    if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
   };
 
-  const handleFileInput = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      processFile(e.target.files[0]);
-    }
-  };
+  const handleFileInput = (e) => { if (e.target.files?.[0]) processFile(e.target.files[0]); };
 
   if (!persona) return null;
 
   const profile = persona.styleProfile;
+  const R = 38;
+  const CIRC = 2 * Math.PI * R;
+  const offset = CIRC - (CIRC * profile.matchScore) / 100;
 
   return (
-    <div className={`w-full flex flex-col h-full overflow-y-auto select-none ${
-      darkMode 
-        ? 'bg-zinc-900 border-zinc-800 text-zinc-100' 
-        : 'bg-white border-l border-slate-200 text-slate-800'
-    }`}>
-      {/* Title Header */}
-      <div className={`p-4 border-b flex items-center justify-between ${
-        darkMode ? 'border-zinc-800 bg-zinc-900/60' : 'border-slate-200 bg-slate-50/80'
-      }`}>
-        <div className="flex items-center gap-2">
-          <BarChart3 className="text-emerald-500" size={15} />
-          <h2 className="font-bold text-xs">Clone Style Profile</h2>
+    <div className="right-panel">
+      {/* Header */}
+      <div className="panel-header">
+        <div className="panel-title">
+          <Sparkles size={14} style={{ color: '#f59e0b' }} />
+          Clone Style Profile
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-bold px-2 py-0.5 rounded-full">
-            Llama 3.2 Active
-          </span>
-          <button 
-            onClick={onCloseDashboard}
-            className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded-lg text-gray-500 dark:text-zinc-400 transition-colors cursor-pointer"
-            title="Close Panel"
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="live-badge">Live</span>
+          <button className="icon-btn" onClick={onCloseDashboard} title="Close"><X size={14} /></button>
+        </div>
+      </div>
+
+      {/* Score Ring */}
+      <div className="score-section">
+        <div className="score-ring-wrap">
+          <svg viewBox="0 0 88 88">
+            <circle cx="44" cy="44" r={R} fill="none" stroke="#f1f5f9" strokeWidth="7" />
+            <circle
+              cx="44" cy="44" r={R}
+              fill="none"
+              stroke="url(#scoreGrad)"
+              strokeWidth="7"
+              strokeLinecap="round"
+              strokeDasharray={CIRC}
+              strokeDashoffset={offset}
+              style={{ transition: 'stroke-dashoffset 1s ease-out' }}
+            />
+            <defs>
+              <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#7c3aed" />
+                <stop offset="100%" stopColor="#60a5fa" />
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="score-inner">
+            <span className="score-value">{profile.matchScore}%</span>
+            <span className="score-label">Match Score</span>
+          </div>
+        </div>
+        <div className="persona-name-display">{persona.name}</div>
+        <div className="persona-subtitle">Persona profile generated from training chat data.</div>
+      </div>
+
+      {/* Body */}
+      <div className="panel-body">
+        {/* Upload */}
+        <div>
+          <div className="panel-section-title">Train / Update Persona</div>
+          <div
+            className={`dropzone${dragActive ? ' drag-active' : ''}`}
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
           >
-            <X size={15} />
-          </button>
+            <input type="file" ref={fileInputRef} onChange={handleFileInput} accept=".txt" style={{ display: 'none' }} />
+
+            {uploadState === 'idle' && (
+              <>
+                <div className="dropzone-icon"><Upload size={16} /></div>
+                <div className="dropzone-title">Upload WhatsApp Chat (.txt)</div>
+                <div className="dropzone-sub">Drag &amp; drop file here</div>
+              </>
+            )}
+
+            {uploadState === 'loading' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 24, height: 24, borderRadius: '50%', border: '2.5px solid #ede9fe', borderTopColor: '#7c3aed', animation: 'spin .8s linear infinite' }} />
+                <div className="dropzone-title">Analyzing Chat Log...</div>
+                <div className="progress-bar-wrap" style={{ width: '100%' }}>
+                  <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+                </div>
+                <div className="dropzone-sub">
+                  {progress < 40 ? 'Sanitizing logs...' : progress < 75 ? 'Mapping speech patterns...' : 'Building prompt profile...'}
+                </div>
+              </div>
+            )}
+
+            {uploadState === 'success' && (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#16a34a' }}>
+                <CheckCircle2 size={28} />
+                <div className="dropzone-title" style={{ color: '#16a34a' }}>Clone Profile Configured!</div>
+                <div className="dropzone-sub" style={{ color: '#4ade80' }}>Ready to chat</div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Tone */}
+        <div>
+          <div className="panel-section-title">Tone &amp; Personality</div>
+          <div className="panel-card">{profile.tone}</div>
+        </div>
+
+        {/* Style */}
+        <div>
+          <div className="panel-section-title">Style &amp; Syntax</div>
+          <div className="panel-card">{profile.punctuation}</div>
+        </div>
+
+        {/* Signature words */}
+        <div>
+          <div className="panel-section-title">Signature Words</div>
+          <div className="chip-list">
+            {profile.vocabulary.map((word, idx) => (
+              <span key={idx} className="chip">{word}</span>
+            ))}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-label">
+              <Clock size={9} />
+              Response Speed
+            </div>
+            <div className="stat-value">{profile.avgResponseTime}</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-label">
+              <FileText size={9} />
+              Avg Msg Length
+            </div>
+            <div className="stat-value">{profile.messageLength}</div>
+          </div>
         </div>
       </div>
 
-      {/* Tab Selector Nav */}
-      <div className={`flex border-b text-[9px] font-bold uppercase tracking-wider ${
-        darkMode ? 'border-zinc-800 bg-zinc-900/30 text-zinc-450' : 'border-slate-200 bg-slate-50/40 text-slate-550'
-      }`}>
-        <button
-          onClick={() => setActiveTab('profile')}
-          className={`flex-1 py-2.5 text-center border-b-2 transition-all cursor-pointer ${
-            activeTab === 'profile'
-              ? 'border-emerald-500 text-emerald-500 bg-emerald-500/5'
-              : 'border-transparent hover:text-slate-700 dark:hover:text-zinc-200'
-          }`}
-        >
-          Style Profile
-        </button>
-        <button
-          onClick={() => setActiveTab('analytics')}
-          className={`flex-1 py-2.5 text-center border-b-2 transition-all cursor-pointer ${
-            activeTab === 'analytics'
-              ? 'border-emerald-500 text-emerald-500 bg-emerald-500/5'
-              : 'border-transparent hover:text-slate-700 dark:hover:text-zinc-200'
-          }`}
-        >
-          Detailed Analytics
-        </button>
-      </div>
-
-      {activeTab === 'profile' ? (
-        <>
-          {/* Style Score Header */}
-          <div className="p-5 flex flex-col items-center border-b border-slate-100 dark:border-zinc-800/60">
-            <div className="relative w-22 h-22 flex items-center justify-center mb-3">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="44"
-                  cy="44"
-                  r="36"
-                  stroke={darkMode ? '#1f1f23' : '#f1f5f9'}
-                  strokeWidth="6"
-                  fill="transparent"
-                />
-                <circle
-                  cx="44"
-                  cy="44"
-                  r="36"
-                  stroke="#10b981"
-                  strokeWidth="6"
-                  fill="transparent"
-                  strokeDasharray={226.2}
-                  strokeDashoffset={226.2 - (226.2 * profile.matchScore) / 100}
-                  className="transition-all duration-1000 ease-out"
-                  strokeLinecap="round"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-xl font-extrabold tracking-tight">{profile.matchScore}%</span>
-                <span className="text-[8px] text-gray-400 dark:text-zinc-500 font-bold uppercase tracking-wider">Match Score</span>
-              </div>
-            </div>
-            <h3 className="font-bold text-sm text-center">{persona.name}</h3>
-            <p className="text-[10px] text-center text-slate-400 dark:text-zinc-500 mt-1 max-w-[200px]">Persona profile generated from training chat data.</p>
-          </div>
-
-          {/* File Upload Dropzone */}
-          <div className="p-4 border-b border-slate-100 dark:border-zinc-800/60">
-            <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500 mb-3">
-              Train / Update Persona
-            </h4>
-            
-            <div
-              onDragEnter={handleDrag}
-              onDragOver={handleDrag}
-              onDragLeave={handleDrag}
-              onDrop={handleDrop}
-              onClick={() => uploadState === 'idle' && fileInputRef.current.click()}
-              className={`border-2 border-dashed rounded-xl p-4 text-center transition-all ${
-                uploadState !== 'idle' ? 'cursor-default' : 'cursor-pointer'
-              } ${
-                dragActive 
-                  ? 'border-emerald-500 bg-emerald-500/5' 
-                  : darkMode 
-                    ? 'border-zinc-800 hover:border-emerald-500/40 hover:bg-zinc-850/30' 
-                    : 'border-slate-200 hover:border-emerald-500/30 hover:bg-slate-50/50'
-              }`}
-            >
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileInput}
-                accept=".txt"
-                className="hidden"
-                disabled={uploadState !== 'idle'}
-              />
-
-              {uploadState === 'idle' && (
-                <div className="flex flex-col items-center py-2">
-                  <Upload className="text-gray-400 dark:text-zinc-500 mb-2" size={20} />
-                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Upload WhatsApp Chat (.txt)</span>
-                  <span className="text-[9px] text-gray-400 dark:text-zinc-500 mt-0.5">Drag & drop or click to browse</span>
-                </div>
-              )}
-
-              {uploadState === 'uploading' && (
-                <div className="flex flex-col items-center py-1">
-                  <div className="w-6 h-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-2"></div>
-                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Uploading File...</span>
-                  <div className="w-full bg-slate-100 dark:bg-zinc-800 h-1 rounded-full mt-2.5 overflow-hidden">
-                    <div 
-                      className="bg-emerald-500 h-full transition-all duration-300" 
-                      style={{ width: `${progress}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-[9px] text-gray-400 dark:text-zinc-500 mt-1.5 font-medium">
-                    {progress}% uploaded
-                  </span>
-                </div>
-              )}
-
-              {uploadState === 'processing' && (
-                <div className="flex flex-col items-center py-1">
-                  <div className="w-6 h-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-2"></div>
-                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Parsing WhatsApp log...</span>
-                  <span className="text-[9px] text-gray-400 dark:text-zinc-500 mt-1.5 font-medium">
-                    Scanning unique participants list...
-                  </span>
-                </div>
-              )}
-
-              {uploadState === 'select_owner' && (
-                <div className="flex flex-col items-center py-1" onClick={(e) => e.stopPropagation()}>
-                  <User className="text-emerald-500 mb-2" size={20} />
-                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-2">Select which user is "Me":</span>
-                  <div className="w-full flex flex-col gap-1 max-h-32 overflow-y-auto">
-                    {participants.map((user, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleConfirmOwner(user)}
-                        className={`w-full py-1.5 px-3 rounded-lg text-xs font-medium border text-left cursor-pointer transition-colors ${
-                          darkMode
-                            ? 'bg-zinc-950 border-zinc-800 hover:bg-zinc-800 hover:border-emerald-500 text-zinc-200'
-                            : 'bg-slate-50 border-slate-200 hover:bg-slate-100 hover:border-emerald-500 text-slate-800'
-                        }`}
-                      >
-                        {user}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {uploadState === 'loading_profile' && (
-                <div className="flex flex-col items-center py-1">
-                  <div className="w-6 h-6 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-2"></div>
-                  <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300">Retraining Digital Clone...</span>
-                  <span className="text-[9px] text-gray-400 dark:text-zinc-500 mt-1.5 font-medium">
-                    Analyzing word patterns and sentence styles...
-                  </span>
-                </div>
-              )}
-
-              {uploadState === 'success' && (
-                <div className="flex flex-col items-center text-emerald-500 py-1">
-                  <CheckCircle2 className="mb-1.5 animate-bounce" size={24} />
-                  <span className="text-xs font-bold">Clone Configured!</span>
-                  <span className="text-[9px] text-emerald-550/85 mt-0.5">Ready to test</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Style Profile Details */}
-          <div className="p-4 flex-1 space-y-4">
-            {/* Tone Section */}
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <Sparkles size={14} className="text-emerald-500" />
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">Tone & Personality</h4>
-              </div>
-              <p className="text-xs leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-100 dark:border-zinc-800/60">
-                {profile.tone}
-              </p>
-            </div>
-
-            {/* Punctuation & Formatting Traits */}
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <BarChart3 size={14} className="text-emerald-500" />
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">Style & Syntax</h4>
-              </div>
-              <p className="text-xs leading-relaxed text-slate-700 dark:text-zinc-300 bg-slate-50 dark:bg-zinc-950 p-3 rounded-xl border border-slate-100 dark:border-zinc-800/60">
-                {profile.punctuation}
-              </p>
-            </div>
-
-            {/* Top Vocabulary Words */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={14} className="text-emerald-500" />
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-zinc-500">Signature Words</h4>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {profile.vocabulary.map((word, idx) => (
-                  <span 
-                    key={idx} 
-                    className="text-[9px] font-bold px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/10"
-                  >
-                    "{word}"
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Numeric stats grid */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/60 rounded-xl">
-                <div className="flex items-center gap-1 text-gray-400 dark:text-zinc-500 mb-1">
-                  <BarChart3 size={12} />
-                  <span className="text-[8px] font-bold uppercase tracking-wider">Emoji Habit</span>
-                </div>
-                <span className="text-[11px] font-extrabold truncate block">{profile.emojiUsage}</span>
-              </div>
-
-              <div className="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800/60 rounded-xl">
-                <div className="flex items-center gap-1 text-gray-400 dark:text-zinc-500 mb-1">
-                  <FileText size={12} />
-                  <span className="text-[8px] font-bold uppercase tracking-wider">Length Detail</span>
-                </div>
-                <span className="text-[11px] font-extrabold truncate block">{profile.messageLength}</span>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <AnalyticsView filename={persona.filename} darkMode={darkMode} />
-      )}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }
