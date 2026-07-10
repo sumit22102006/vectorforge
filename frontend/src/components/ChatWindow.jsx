@@ -1,7 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Phone, Video, Search, MoreVertical, Smile, Paperclip, Send, Mic, Check, CheckCheck } from 'lucide-react';
+import { Search, MoreVertical, Smile, Paperclip, Send, Mic, Check, CheckCheck } from 'lucide-react';
 
-export default function ChatWindow({ persona, onSendMessage, darkMode }) {
+export default function ChatWindow({ 
+  persona, 
+  onSendMessage, 
+  darkMode, 
+  showDashboard, 
+  onToggleDashboard 
+}) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -56,19 +62,21 @@ export default function ChatWindow({ persona, onSendMessage, darkMode }) {
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-5 text-gray-500 dark:text-gray-400">
-          <button title="Start Video Call" className="hover:text-emerald-500 transition-colors cursor-pointer">
-            <Video size={18} />
-          </button>
-          <button title="Start Voice Call" className="hover:text-emerald-500 transition-colors cursor-pointer">
-            <Phone size={18} />
-          </button>
-          <div className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1"></div>
+        <div className="flex items-center gap-4 text-gray-500 dark:text-gray-400 font-mono">
           <button title="Search in Chat" className="hover:text-emerald-500 transition-colors cursor-pointer">
             <Search size={18} />
           </button>
           <button title="Chat Menu" className="hover:text-emerald-500 transition-colors cursor-pointer">
             <MoreVertical size={18} />
+          </button>
+          
+          {/* Toggle Right Style Panel Arrow Button */}
+          <button
+            onClick={onToggleDashboard}
+            title={showDashboard ? "Hide Style Profile" : "Show Style Profile"}
+            className="hover:text-emerald-500 transition-colors cursor-pointer font-bold text-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3.5 py-1 rounded-lg select-none"
+          >
+            {showDashboard ? '→' : '←'}
           </button>
         </div>
       </div>
